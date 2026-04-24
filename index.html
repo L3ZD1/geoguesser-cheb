@@ -26,26 +26,29 @@
     }
 
     .controls {
-      margin: 15px;
+      margin: 10px;
     }
 
     button {
       padding: 10px 20px;
-      font-size: 16px;
       margin: 5px;
       cursor: pointer;
     }
 
     #result {
-      font-size: 18px;
       margin-top: 10px;
+      font-size: 18px;
+    }
+
+    #stats {
+      margin-top: 10px;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
 
-<h1>Чувашия-Guessr</h1>
-<p>Угадай место по панораме 👇</p>
+<h1>Chuvashia Guessr</h1>
 
 <div id="panorama"></div>
 <div id="map"></div>
@@ -55,16 +58,26 @@
   <button onclick="checkGuess()">✅ Проверить</button>
 </div>
 
+<div id="stats">
+  Очки: 0 | Уровень: Новичок | Стрик: 0
+</div>
+
 <p id="result"></p>
 
 <script>
 let map;
 let player;
+
 let guessPlacemark;
+let realPlacemark;
+
 let guessCoords = null;
 let currentCoords;
 
-// Границы Чувашии (примерно)
+// прогресс
+let score = 0;
+let streak = 0;
+
 const bounds = {
   latMin: 54.9,
   latMax: 56.5,
@@ -83,9 +96,7 @@ function init() {
   map.events.add('click', function (e) {
     guessCoords = e.get('coords');
 
-    if (guessPlacemark) {
-      map.geoObjects.remove(guessPlacemark);
-    }
+    if (guessPlacemark) map.geoObjects.remove(guessPlacemark);
 
     guessPlacemark = new ymaps.Placemark(guessCoords);
     map.geoObjects.add(guessPlacemark);
@@ -99,19 +110,11 @@ function showPanorama(coords) {
 
   ymaps.panorama.locate(coords).done(function (panoramas) {
     if (panoramas.length > 0) {
+      if (player) player.destroy();
 
-      if (player) {
-        player.destroy();
-      }
-
-      player = new ymaps.panorama.Player(
-        'panorama',
-        panoramas[0],
-        { controls: ['zoomControl'] }
-      );
-
+      player = new ymaps.panorama.Player('panorama', panoramas[0]);
     } else {
-      findValidPanorama(); // fallback
+      findValidPanorama();
     }
   });
 }
@@ -119,9 +122,8 @@ function showPanorama(coords) {
 function newLocation() {
   guessCoords = null;
 
-  if (guessPlacemark) {
-    map.geoObjects.remove(guessPlacemark);
-  }
+  // 🧹 УДАЛЯЕМ ВСЁ С КАРТЫ
+  map.geoObjects.removeAll();
 
   document.getElementById("result").innerText = "Поиск панорамы...";
 
@@ -139,7 +141,7 @@ function findValidPanorama() {
       document.getElementById("result").innerText = "";
       showPanorama(coords);
     } else {
-      findValidPanorama(); // ищем дальше
+      findValidPanorama();
     }
   });
 }
@@ -159,6 +161,13 @@ function getDistance(a, b) {
   return Math.sqrt(x*x + y*y) * R;
 }
 
+function getLevel(points) {
+  if (points < 100) return "Новичок";
+  if (points < 300) return "Любитель";
+  if (points < 700) return "Профи";
+  return "Гео-Бог";
+}
+
 function checkGuess() {
   if (!guessCoords) {
     alert("Кликни на карту!");
@@ -167,15 +176,34 @@ function checkGuess() {
 
   const dist = getDistance(currentCoords, guessCoords);
 
+  // 🎯 система очков
+  let gained = Math.max(0, 100 - dist);
+
+  score += gained;
+
+  // 🔥 стрик
+  if (dist < 10) {
+    streak++;
+  } else {
+    streak = 0;
+  }
+
   document.getElementById("result").innerText =
-    "Ты ошибся на " + dist.toFixed(2) + " км";
+    `Ошибка: ${dist.toFixed(2)} км | +${gained.toFixed(0)} очков`;
 
   // показать правильную точку
-  const realPlacemark = new ymaps.Placemark(currentCoords, {}, {
+  realPlacemark = new ymaps.Placemark(currentCoords, {}, {
     preset: 'islands#redIcon'
   });
 
   map.geoObjects.add(realPlacemark);
+
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById("stats").innerText =
+    `Очки: ${Math.floor(score)} | Уровень: ${getLevel(score)} | Стрик: ${streak}`;
 }
 </script>
 
