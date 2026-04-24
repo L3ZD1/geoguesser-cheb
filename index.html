@@ -1,80 +1,172 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>Chuvashia Guessr</title>
+  <meta charset="UTF-8">
+  <title>Chuvashia Guessr</title>
 
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=6709e2f0-92c2-4e19-b042-cfa1f259838d&lang=ru_RU"></script>
+  <!-- ВСТАВЬ СЮДА СВОЙ API КЛЮЧ -->
+  <script src="https://api-maps.yandex.ru/2.1/?apikey=6709e2f0-92c2-4e19-b042-cfa1f259838d&lang=ru_RU"></script>
 
-    <style>
-        body {
-            background: #111;
-            color: white;
-            text-align: center;
-            font-family: Arial;
-        }
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: Arial;
+      text-align: center;
+    }
 
-        #map {
-            width: 90%;
-            height: 400px;
-            margin: 20px auto;
-        }
+    h1 {
+      margin: 10px;
+    }
 
-        button {
-            padding: 10px 20px;
-            font-size: 18px;
-            cursor: pointer;
-        }
-    </style>
+    #panorama {
+      width: 100%;
+      height: 400px;
+    }
+
+    #map {
+      width: 100%;
+      height: 300px;
+    }
+
+    .controls {
+      margin: 15px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+      cursor: pointer;
+    }
+
+    #result {
+      font-size: 18px;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
 
-    <h1>Chuvashia Guessr</h1>
+<h1>Chuvashia Guessr</h1>
+<p>Угадай место по панораме 👇</p>
 
-    <div id="map"></div>
+<div id="panorama"></div>
+<div id="map"></div>
 
-    <button onclick="newLocation()">Новое место</button>
+<div class="controls">
+  <button onclick="newLocation()">🎲 Новое место</button>
+  <button onclick="checkGuess()">✅ Проверить</button>
+</div>
 
-    <script>
-        let map;
+<p id="result"></p>
 
-        const locations = [
-            [56.132, 47.251],
-            [55.864, 47.467],
-            [55.496, 46.889],
-            [55.735, 47.018]
-        ];
+<script>
+let map;
+let player;
+let guessPlacemark;
+let guessCoords = null;
+let currentCoords;
 
-        ymaps.ready(init);
+const locations = [
+  [56.132, 47.251],
+  [55.864, 47.467],
+  [55.496, 46.889],
+  [55.735, 47.018]
+];
 
-        function init() {
-            map = new ymaps.Map("map", {
-                center: locations[0],
-                zoom: 14
-            });
+ymaps.ready(init);
 
-            showPanorama(locations[0]);
-        }
+function init() {
+  map = new ymaps.Map("map", {
+    center: [55.7, 47.2],
+    zoom: 7
+  });
 
-        function showPanorama(coords) {
-            ymaps.panorama.locate(coords).done(function (panoramas) {
-                if (panoramas.length > 0) {
-                    var player = new ymaps.panorama.Player(
-                        'map',
-                        panoramas[0],
-                        { controls: ['zoomControl'] }
-                    );
-                } else {
-                    alert("Нет панорамы в этом месте 😢");
-                }
-            });
-        }
+  map.events.add('click', function (e) {
+    guessCoords = e.get('coords');
 
-        function newLocation() {
-            const random = Math.floor(Math.random() * locations.length);
-            showPanorama(locations[random]);
-        }
-    </script>
+    if (guessPlacemark) {
+      map.geoObjects.remove(guessPlacemark);
+    }
+
+    guessPlacemark = new ymaps.Placemark(guessCoords);
+    map.geoObjects.add(guessPlacemark);
+  });
+
+  newLocation();
+}
+
+function showPanorama(coords) {
+  currentCoords = coords;
+
+  ymaps.panorama.locate(coords).done(function (panoramas) {
+    if (panoramas.length > 0) {
+
+      if (player) {
+        player.destroy();
+      }
+
+      player = new ymaps.panorama.Player(
+        'panorama',
+        panoramas[0],
+        { controls: ['zoomControl'] }
+      );
+
+    } else {
+      alert("Нет панорамы 😢");
+    }
+  });
+}
+
+function newLocation() {
+  const random = Math.floor(Math.random() * locations.length);
+  showPanorama(locations[random]);
+
+  guessCoords = null;
+
+  if (guessPlacemark) {
+    map.geoObjects.remove(guessPlacemark);
+  }
+
+  document.getElementById("result").innerText = "";
+}
+
+function getDistance(a, b) {
+  const R = 6371;
+
+  const dLat = (b[0] - a[0]) * Math.PI / 180;
+  const dLon = (b[1] - a[1]) * Math.PI / 180;
+
+  const lat1 = a[0] * Math.PI / 180;
+  const lat2 = b[0] * Math.PI / 180;
+
+  const x = dLon * Math.cos((lat1 + lat2) / 2);
+  const y = dLat;
+
+  return Math.sqrt(x*x + y*y) * R;
+}
+
+function checkGuess() {
+  if (!guessCoords) {
+    alert("Кликни на карту!");
+    return;
+  }
+
+  const dist = getDistance(currentCoords, guessCoords);
+
+  document.getElementById("result").innerText =
+    "Ты ошибся на " + dist.toFixed(2) + " км";
+
+  // показать правильную точку
+  const realPlacemark = new ymaps.Placemark(currentCoords, {}, {
+    preset: 'islands#redIcon'
+  });
+
+  map.geoObjects.add(realPlacemark);
+}
+</script>
 
 </body>
 </html>
