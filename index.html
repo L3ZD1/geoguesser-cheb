@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <title>Chuvashia Guessr</title>
 
-  <script src="https://api-maps.yandex.ru/2.1/?apikey=6709e2f0-92c2-4e19-b042-cfa1f259838d&lang=ru_RU"></script>
+  <!-- ВСТАВЬ СЮДА СВОЙ API КЛЮЧ -->
+  <script src="https://api-maps.yandex.ru/2.1/?apikey=ТВОЙ_API_КЛЮЧ&lang=ru_RU"></script>
 
   <style>
     body {
@@ -13,10 +14,6 @@
       color: white;
       font-family: Arial;
       text-align: center;
-    }
-
-    h1 {
-      margin: 10px;
     }
 
     #panorama {
@@ -68,88 +65,13 @@ let guessPlacemark;
 let guessCoords = null;
 let currentCoords;
 
-const locations = [
-
-  // Чебоксары (много панорам)
-  [56.1320, 47.2510],
-  [56.1305, 47.2700],
-  [56.1200, 47.2600],
-  [56.1150, 47.2400],
-  [56.1400, 47.2800],
-  [56.1250, 47.3000],
-  [56.1100, 47.2200],
-  [56.1350, 47.2100],
-
-  // Новочебоксарск
-  [55.8650, 47.4800],
-  [55.8700, 47.5000],
-  [56.121282, 47.436532],
-  [56.111168, 47.444867],
-
-  // Канаш
-  [55.5100, 46.5600],
-  [55.5000, 46.5800],
-  [55.5200, 46.5400],
-
-  // Шумерля
-  [55.8700, 46.3500],
-  [55.8600, 46.3700],
-  [55.8800, 46.3300],
-
-  // Цивильск
-  [55.9600, 47.6000],
-  [55.9500, 47.5800],
-  [55.9700, 47.6200],
-
-  // Ядрин
-  [55.9400, 47.9400],
-  [55.9300, 47.9000],
-  [55.9500, 47.9700],
-
-  // Козловка (трасса М7 рядом)
-  [56.0500, 47.8000],
-  [56.0400, 47.7800],
-  [56.0600, 47.8200],
-
-  // Ибреси
-  [55.9000, 46.8000],
-  [55.9100, 46.8200],
-
-  // Вурнары
-  [55.6500, 46.9000],
-  [55.6600, 46.8800],
-
-  // Алатырь
-  [55.2000, 46.3000],
-  [55.2100, 46.2800],
-  [55.1900, 46.3200],
-
-  // трассы (100% панорамы почти всегда)
-  [56.1000, 47.2000],
-  [56.0500, 47.1500],
-  [55.9000, 47.3000],
-  [55.8000, 47.2000],
-  [55.7000, 47.1000],
-  [55.6000, 47.0000],
-  [55.5000, 46.9000],
-  [55.4000, 46.8000],
-  [55.3000, 46.7000],
-
-  // ещё дороги вокруг Чебоксар
-  [56.1500, 47.3500],
-  [56.1700, 47.3000],
-  [56.1800, 47.2500],
-  [56.1400, 47.1800],
-  [56.1000, 47.1500],
-  [56.0900, 47.3000],
-
-  // доп города/дороги
-  [55.7500, 47.3000],
-  [55.8000, 47.4000],
-  [55.8500, 47.3500],
-  [55.9000, 47.4500],
-  [55.9500, 47.5000]
-];
+// Границы Чувашии (примерно)
+const bounds = {
+  latMin: 54.9,
+  latMax: 56.5,
+  lonMin: 45.8,
+  lonMax: 48.2
+};
 
 ymaps.ready(init);
 
@@ -190,22 +112,37 @@ function showPanorama(coords) {
       );
 
     } else {
-      alert("Нет панорамы 😢");
+      findValidPanorama(); // fallback
     }
   });
 }
 
 function newLocation() {
-  const random = Math.floor(Math.random() * locations.length);
-  showPanorama(locations[random]);
-
   guessCoords = null;
 
   if (guessPlacemark) {
     map.geoObjects.remove(guessPlacemark);
   }
 
-  document.getElementById("result").innerText = "";
+  document.getElementById("result").innerText = "Поиск панорамы...";
+
+  findValidPanorama();
+}
+
+function findValidPanorama() {
+  const lat = bounds.latMin + Math.random() * (bounds.latMax - bounds.latMin);
+  const lon = bounds.lonMin + Math.random() * (bounds.lonMax - bounds.lonMin);
+
+  const coords = [lat, lon];
+
+  ymaps.panorama.locate(coords).done(function (panoramas) {
+    if (panoramas.length > 0) {
+      document.getElementById("result").innerText = "";
+      showPanorama(coords);
+    } else {
+      findValidPanorama(); // ищем дальше
+    }
+  });
 }
 
 function getDistance(a, b) {
